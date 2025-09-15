@@ -1,0 +1,24 @@
+{
+  "app": {
+    "name": "GraphRAG Test",
+    "version": "1.0.0",
+    "settings": {
+      "debug": true,
+      "features": {
+        "parser": {
+          "enabled": true,
+          "options": ["ast", "tree-sitter"]
+        },
+        "visualization": {
+          "enabled": true,
+          "engine": "d3"
+        }
+      }
+    }
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "graphrag_db"
+  }
+}

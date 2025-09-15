@@ -1,0 +1,87 @@
+# GraphRAG 忽略文件配置
+# 这个文件定义了哪些文件和目录应该被排除在知识图谱构建之外
+
+# 依赖目录
+node_modules/
+.pnpm-store/
+.yarn/
+bower_components/
+
+# 构建输出目录
+dist/
+build/
+out/
+coverage/
+.cache/
+.temp/
+.tmp/
+
+# 版本控制
+.git/
+.svn/
+.hg/
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+log/
+
+# 环境配置文件
+.env*
+*.local
+
+# 测试文件
+test/
+tests/
+__tests__/
+spec/
+e2e/
+cypress/
+*.test.*
+*.spec.*
+*.e2e.*
+
+# 文档目录
+docs/
+documentation/
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# 配置文件
+webpack.config.*
+vite.config.*
+rollup.config.*
+babel.config.*
+postcss.config.*
+tailwind.config.*
+jest.config.*
+*.config.js
+*.config.ts
+
+# 压缩文件
+*.min.js
+*.min.css
+*.bundle.js
+*.chunk.js
+
+# Vue CLI 相关
+public/
+static/
+assets/
+
+# 其他
+scripts/
+tools/
+.github/

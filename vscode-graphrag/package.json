@@ -1,0 +1,92 @@
+{
+  "name": "vscode-graphrag",
+  "displayName": "GraphRAG Knowledge Graph",
+  "description": "将项目代码自动构建为知识图谱的 VS Code 插件。",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-graphrag.buildGraph",
+        "title": "构建知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.showGraph",
+        "title": "查看知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.exportGraph",
+        "title": "导出知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.importGraph",
+        "title": "导入知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.clearGraph",
+        "title": "清空知识图谱",
+        "category": "GraphRAG"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "vscode-graphrag.buildGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.showGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.exportGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.importGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.clearGraph",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    }
+  },
+  "activationEvents": [
+    "onCommand:vscode-graphrag.buildGraph",
+    "onCommand:vscode-graphrag.showGraph",
+    "onCommand:vscode-graphrag.exportGraph",
+    "onCommand:vscode-graphrag.importGraph",
+    "onCommand:vscode-graphrag.clearGraph",
+    "workspaceContains:**/*.{ts,js,vue}"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p ."
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@types/node": "^24.4.0",
+    "@vue/compiler-sfc": "^3.5.21",
+    "@vue/compiler-dom": "^3.5.21",
+    "typescript": "^5.9.2",
+    "d3": "^7.8.5",
+    "cytoscape": "^3.26.0"
+  }
+}

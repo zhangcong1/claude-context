@@ -1,0 +1,667 @@
+{
+  "nodes": [
+    {
+      "id": "./test-files/sample.ts:module",
+      "type": "Module",
+      "name": "sample.ts",
+      "file": "./test-files/sample.ts"
+    },
+    {
+      "id": "./test-files/sample.ts:User",
+      "type": "Module",
+      "name": "User",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 5,
+        "column": 0
+      },
+      "extra": {
+        "isInterface": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:UserRole",
+      "type": "Type",
+      "name": "UserRole",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 12,
+        "column": 0
+      },
+      "extra": {
+        "isTypeAlias": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:Status",
+      "type": "Enum",
+      "name": "Status",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 15,
+        "column": 0
+      },
+      "extra": {
+        "members": [
+          "ACTIVE",
+          "INACTIVE",
+          "PENDING"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:UserService",
+      "type": "Class",
+      "name": "UserService",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 22,
+        "column": 0
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:users",
+      "type": "Variable",
+      "name": "users",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 23,
+        "column": 2
+      },
+      "extra": {
+        "isProperty": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:getUserById",
+      "type": "Function",
+      "name": "getUserById",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 31,
+        "column": 2
+      },
+      "extra": {
+        "isMethod": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:anonymous",
+      "type": "Function",
+      "name": "anonymous",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 70,
+        "column": 12
+      },
+      "extra": {
+        "isArrowFunction": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:initializeUsers",
+      "type": "Function",
+      "name": "initializeUsers",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 36,
+        "column": 2
+      },
+      "extra": {
+        "isMethod": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:data",
+      "type": "Variable",
+      "name": "data",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 37,
+        "column": 10
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:updateUser",
+      "type": "Function",
+      "name": "updateUser",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 66,
+        "column": 2
+      },
+      "extra": {
+        "isMethod": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:result",
+      "type": "Variable",
+      "name": "result",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 48,
+        "column": 12
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:Api",
+      "type": "Class",
+      "name": "Api",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 58,
+        "column": 0
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:fetchUsers",
+      "type": "Function",
+      "name": "fetchUsers",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 61,
+        "column": 2
+      },
+      "extra": {
+        "isMethod": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:validateEmail",
+      "type": "Function",
+      "name": "validateEmail",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 75,
+        "column": 0
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:emailRegex",
+      "type": "Variable",
+      "name": "emailRegex",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 76,
+        "column": 8
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:formatUserName",
+      "type": "Function",
+      "name": "formatUserName",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 81,
+        "column": 23
+      },
+      "extra": {
+        "isArrowFunction": true
+      }
+    },
+    {
+      "id": "./test-files/sample.ts:createUser",
+      "type": "Function",
+      "name": "createUser",
+      "file": "./test-files/sample.ts",
+      "position": {
+        "line": 86,
+        "column": 0
+      }
+    },
+    {
+      "id": "./test-files/Component.ts:Component",
+      "type": "Module",
+      "name": "Component",
+      "file": "./test-files/Component.ts",
+      "position": {
+        "line": 1,
+        "column": 0
+      },
+      "extra": {
+        "isInterface": true
+      }
+    },
+    {
+      "id": "./test-files/Component.ts:ButtonComponent",
+      "type": "Class",
+      "name": "ButtonComponent",
+      "file": "./test-files/Component.ts",
+      "position": {
+        "line": 6,
+        "column": 0
+      }
+    },
+    {
+      "id": "./test-files/Component.ts:id",
+      "type": "Variable",
+      "name": "id",
+      "file": "./test-files/Component.ts",
+      "position": {
+        "line": 7,
+        "column": 2
+      },
+      "extra": {
+        "isProperty": true
+      }
+    },
+    {
+      "id": "./test-files/Component.ts:render",
+      "type": "Function",
+      "name": "render",
+      "file": "./test-files/Component.ts",
+      "position": {
+        "line": 9,
+        "column": 2
+      },
+      "extra": {
+        "isMethod": true
+      }
+    },
+    {
+      "id": "./test-files/config.json:json-root",
+      "type": "Json",
+      "name": "root",
+      "file": "./test-files/config.json",
+      "extra": {
+        "keys": [
+          "app",
+          "database"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app",
+      "type": "Json",
+      "name": "app",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app",
+        "isArray": false,
+        "keys": [
+          "name",
+          "version",
+          "settings"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app.name",
+      "type": "Json",
+      "name": "name",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app.name",
+        "value": "GraphRAG Test",
+        "type": "string"
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app.version",
+      "type": "Json",
+      "name": "version",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app.version",
+        "value": "1.0.0",
+        "type": "string"
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app.settings",
+      "type": "Json",
+      "name": "settings",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app.settings",
+        "isArray": false,
+        "keys": [
+          "debug",
+          "features"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app.settings.debug",
+      "type": "Json",
+      "name": "debug",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app.settings.debug",
+        "value": "true",
+        "type": "boolean"
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app.settings.features",
+      "type": "Json",
+      "name": "features",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app.settings.features",
+        "isArray": false,
+        "keys": [
+          "parser",
+          "visualization"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app.settings.features.parser",
+      "type": "Json",
+      "name": "parser",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app.settings.features.parser",
+        "isArray": false,
+        "keys": [
+          "enabled",
+          "options"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:app.settings.features.visualization",
+      "type": "Json",
+      "name": "visualization",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "app.settings.features.visualization",
+        "isArray": false,
+        "keys": [
+          "enabled",
+          "engine"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:database",
+      "type": "Json",
+      "name": "database",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "database",
+        "isArray": false,
+        "keys": [
+          "host",
+          "port",
+          "name"
+        ]
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:database.host",
+      "type": "Json",
+      "name": "host",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "database.host",
+        "value": "localhost",
+        "type": "string"
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:database.port",
+      "type": "Json",
+      "name": "port",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "database.port",
+        "value": "5432",
+        "type": "number"
+      }
+    },
+    {
+      "id": "./test-files/config.json:json:database.name",
+      "type": "Json",
+      "name": "name",
+      "file": "./test-files/config.json",
+      "extra": {
+        "path": "database.name",
+        "value": "graphrag_db",
+        "type": "string"
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown",
+      "type": "Markdown",
+      "name": "README.md",
+      "file": "./test-files/README.md",
+      "extra": {
+        "headings": 9,
+        "wordCount": 53
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:GraphRAG 测试项目",
+      "type": "Markdown",
+      "name": "GraphRAG 测试项目",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 0,
+        "column": 0
+      },
+      "extra": {
+        "level": 1,
+        "isHeading": true,
+        "headingIndex": 0
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:项目概述",
+      "type": "Markdown",
+      "name": "项目概述",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 2,
+        "column": 0
+      },
+      "extra": {
+        "level": 2,
+        "isHeading": true,
+        "headingIndex": 1
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:主要功能",
+      "type": "Markdown",
+      "name": "主要功能",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 5,
+        "column": 0
+      },
+      "extra": {
+        "level": 2,
+        "isHeading": true,
+        "headingIndex": 2
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:用户管理",
+      "type": "Markdown",
+      "name": "用户管理",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 7,
+        "column": 0
+      },
+      "extra": {
+        "level": 3,
+        "isHeading": true,
+        "headingIndex": 3
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:组件系统",
+      "type": "Markdown",
+      "name": "组件系统",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 12,
+        "column": 0
+      },
+      "extra": {
+        "level": 3,
+        "isHeading": true,
+        "headingIndex": 4
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:技术栈",
+      "type": "Markdown",
+      "name": "技术栈",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 17,
+        "column": 0
+      },
+      "extra": {
+        "level": 2,
+        "isHeading": true,
+        "headingIndex": 5
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:安装和运行",
+      "type": "Markdown",
+      "name": "安装和运行",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 23,
+        "column": 0
+      },
+      "extra": {
+        "level": 2,
+        "isHeading": true,
+        "headingIndex": 6
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:API文档",
+      "type": "Markdown",
+      "name": "API文档",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 29,
+        "column": 0
+      },
+      "extra": {
+        "level": 2,
+        "isHeading": true,
+        "headingIndex": 7
+      }
+    },
+    {
+      "id": "./test-files/README.md:markdown:贡献指南",
+      "type": "Markdown",
+      "name": "贡献指南",
+      "file": "./test-files/README.md",
+      "position": {
+        "line": 32,
+        "column": 0
+      },
+      "extra": {
+        "level": 2,
+        "isHeading": true,
+        "headingIndex": 8
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "./test-files/config.json:json-root",
+      "target": "./test-files/config.json:json:app",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:app",
+      "target": "./test-files/config.json:json:app.name",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:app",
+      "target": "./test-files/config.json:json:app.version",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:app",
+      "target": "./test-files/config.json:json:app.settings",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:app.settings",
+      "target": "./test-files/config.json:json:app.settings.debug",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:app.settings",
+      "target": "./test-files/config.json:json:app.settings.features",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:app.settings.features",
+      "target": "./test-files/config.json:json:app.settings.features.parser",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:app.settings.features",
+      "target": "./test-files/config.json:json:app.settings.features.visualization",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json-root",
+      "target": "./test-files/config.json:json:database",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:database",
+      "target": "./test-files/config.json:json:database.host",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:database",
+      "target": "./test-files/config.json:json:database.port",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/config.json:json:database",
+      "target": "./test-files/config.json:json:database.name",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/README.md:markdown",
+      "target": "./test-files/README.md:markdown:GraphRAG 测试项目",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/README.md:markdown:GraphRAG 测试项目",
+      "target": "./test-files/README.md:markdown:项目概述",
+      "relation": "references"
+    },
+    {
+      "source": "./test-files/README.md:markdown:主要功能",
+      "target": "./test-files/README.md:markdown:用户管理",
+      "relation": "references"
+    }
+  ],
+  "stats": {
+    "nodeCount": 45,
+    "edgeCount": 15,
+    "nodeTypes": {
+      "Module": 3,
+      "Type": 1,
+      "Enum": 1,
+      "Class": 3,
+      "Variable": 5,
+      "Function": 9,
+      "Json": 13,
+      "Markdown": 10
+    },
+    "relationTypes": {
+      "references": 15
+    },
+    "lastUpdated": "2025-09-15T17:52:27.576Z"
+  }
+}
