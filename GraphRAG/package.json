@@ -1,0 +1,193 @@
+{
+  "name": "vscode-graphrag",
+  "displayName": "vscode-graphrag",
+  "description": "将项目代码自动构建为知识图谱的 VS Code 插件。",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-graphrag.buildGraph",
+        "title": "构建知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.showGraph",
+        "title": "查看知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.exportGraph",
+        "title": "导出知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.importGraph",
+        "title": "导入知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.clearGraph",
+        "title": "清空知识图谱",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.semanticSearch",
+        "title": "语义搜索",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.indexCodebase",
+        "title": "索引代码库",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.generateWiki",
+        "title": "生成项目Wiki",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.generateAIWiki",
+        "title": "生成AI增强Wiki",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.generateBusinessWiki",
+        "title": "生成业务Wiki文档",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.generateUnifiedWiki",
+        "title": "生成统一知识图谱Wiki",
+        "category": "GraphRAG"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "vscode-graphrag.buildGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.showGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.exportGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.importGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.clearGraph",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.semanticSearch",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.indexCodebase",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.generateWiki",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.generateAIWiki",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.generateBusinessWiki",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.generateUnifiedWiki",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "GraphRAG Knowledge Graph",
+      "properties": {
+        "vscode-graphrag.embeddingProvider.provider": {
+          "type": "string",
+          "enum": [
+            "OpenAI",
+            "VoyageAI",
+            "Ollama",
+            "Gemini"
+          ],
+          "description": "嵌入服务提供商"
+        },
+        "vscode-graphrag.embeddingProvider.model": {
+          "type": "string",
+          "description": "使用的嵌入模型"
+        },
+        "vscode-graphrag.embeddingProvider.apiKey": {
+          "type": "string",
+          "description": "嵌入服务提供商的API密钥"
+        },
+        "vscode-graphrag.embeddingProvider.baseURL": {
+          "type": "string",
+          "description": "自定义API端点URL（可选）"
+        },
+        "vscode-graphrag.includeTemplate": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否解析Vue模板"
+        },
+        "vscode-graphrag.maxNodesPerFile": {
+          "type": "number",
+          "default": 100,
+          "description": "每个文件最大节点数"
+        },
+        "vscode-graphrag.maxFileSizeKB": {
+          "type": "number",
+          "default": 50,
+          "description": "最大文件大小（KB）"
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "workspaceContains:**/*.{ts,js,vue}"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.104.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "eslint": "^9.34.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.9.2",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "dependencies": {
+    "@types/node": "^24.4.0",
+    "@vue/compiler-sfc": "^3.5.21",
+    "@vue/compiler-dom": "^3.5.21",
+    "typescript": "^5.9.2",
+    "d3": "^7.8.5",
+    "cytoscape": "^3.26.0"
+  }
+}
