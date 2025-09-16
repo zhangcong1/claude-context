@@ -31,6 +31,12 @@ export interface GraphNode {
     name: string;
     file: string;
     position?: { line: number; column: number };
+    // range: byte offsets and start/end lines in the source file (useful to fetch full code later)
+    range?: { start: number; end: number; startLine: number; endLine: number };
+    // small code snippet (capped) to give quick context without reading file
+    snippet?: string;
+    // optional natural language semantic description or short summary
+    semantic?: string;
     extra?: Record<string, any>;
 }
 
@@ -208,26 +214,38 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
 
         function visit(node: ts.Node) {
             // 如果节点数量过多，跳过后续解析
-            if (nodeCount >= maxNodes) return;
+            if (nodeCount >= maxNodes) { return; }
 
             if (ts.isFunctionDeclaration(node) && node.name) {
                 const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                const start = node.getStart();
+                const end = node.getEnd();
+                const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                 nodes.push({
                     id: `${filePath}:${node.name.text}`,
                     type: 'Function',
                     name: node.name.text,
                     file: filePath,
-                    position: { line: pos.line, column: pos.character }
+                    position: { line: pos.line, column: pos.character },
+                    range: { start, end, startLine: pos.line, endLine: endPos.line },
+                    snippet: code.slice(start, Math.min(end, start + 240)),
+                    semantic: `Function ${node.name.text}`
                 });
                 nodeCount++;
             } else if (ts.isClassDeclaration(node) && node.name) {
                 const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                const start = node.getStart();
+                const end = node.getEnd();
+                const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                 nodes.push({
                     id: `${filePath}:${node.name.text}`,
                     type: 'Class',
                     name: node.name.text,
                     file: filePath,
-                    position: { line: pos.line, column: pos.character }
+                    position: { line: pos.line, column: pos.character },
+                    range: { start, end, startLine: pos.line, endLine: endPos.line },
+                    snippet: code.slice(start, Math.min(end, start + 240)),
+                    semantic: `Class ${node.name.text}`
                 });
                 nodeCount++;
 
@@ -251,12 +269,18 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
                     node.declarationList.declarations.forEach((decl: ts.VariableDeclaration) => {
                         if (ts.isIdentifier(decl.name) && nodeCount < maxNodes) {
                             const pos = sourceFile.getLineAndCharacterOfPosition(decl.getStart());
+                            const start = decl.getStart();
+                            const end = decl.getEnd();
+                            const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                             nodes.push({
                                 id: `${filePath}:${decl.name.text}`,
                                 type: 'Variable',
                                 name: decl.name.text,
                                 file: filePath,
-                                position: { line: pos.line, column: pos.character }
+                                position: { line: pos.line, column: pos.character },
+                                range: { start, end, startLine: pos.line, endLine: endPos.line },
+                                snippet: code.slice(start, Math.min(end, start + 240)),
+                                semantic: `Variable ${decl.name.getText()}`
                             });
                             nodeCount++;
                         }
@@ -269,11 +293,19 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
 
                 // 确保文件模块节点存在
                 if (!nodes.find(n => n.id === fileNodeId)) {
+                    const start = node.getStart();
+                    const end = node.getEnd();
+                    const pos = sourceFile.getLineAndCharacterOfPosition(start);
+                    const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                     nodes.push({
                         id: fileNodeId,
                         type: 'Module',
                         name: path.basename(filePath),
-                        file: filePath
+                        file: filePath,
+                        position: { line: pos.line, column: pos.character },
+                        range: { start, end, startLine: pos.line, endLine: endPos.line },
+                        snippet: code.slice(start, Math.min(end, start + 240)),
+                        semantic: `Module ${path.basename(filePath)}`
                     });
                     nodeCount++;
                 }
@@ -364,13 +396,19 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
                 if (methodName && nodeCount < maxNodes) {
                     const isPublic = !node.modifiers?.some((mod: any) => mod.kind === ts.SyntaxKind.PrivateKeyword);
                     if (isPublic) {
-                        const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                        const start = node.getStart();
+                        const end = node.getEnd();
+                        const pos = sourceFile.getLineAndCharacterOfPosition(start);
+                        const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                         nodes.push({
                             id: `${filePath}:${methodName}`,
                             type: 'Function',
                             name: methodName,
                             file: filePath,
                             position: { line: pos.line, column: pos.character },
+                            range: { start, end, startLine: pos.line, endLine: endPos.line },
+                            snippet: code.slice(start, Math.min(end, start + 240)),
+                            semantic: `Method ${methodName}`,
                             extra: { isMethod: true }
                         });
                         nodeCount++;
@@ -379,13 +417,19 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
             } else if (ts.isInterfaceDeclaration(node) && node.name) {
                 // 接口声明
                 if (nodeCount < maxNodes) {
-                    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                    const start = node.getStart();
+                    const end = node.getEnd();
+                    const pos = sourceFile.getLineAndCharacterOfPosition(start);
+                    const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                     nodes.push({
                         id: `${filePath}:${node.name.text}`,
                         type: 'Interface',
                         name: node.name.text,
                         file: filePath,
-                        position: { line: pos.line, column: pos.character }
+                        position: { line: pos.line, column: pos.character },
+                        range: { start, end, startLine: pos.line, endLine: endPos.line },
+                        snippet: code.slice(start, Math.min(end, start + 240)),
+                        semantic: `Interface ${node.name.text}`
                     });
                     nodeCount++;
                 }
@@ -393,26 +437,38 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
                 // 类型别名声明 - 只处理导出的
                 const isExported = node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.ExportKeyword);
                 if (isExported && nodeCount < maxNodes) {
-                    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                    const start = node.getStart();
+                    const end = node.getEnd();
+                    const pos = sourceFile.getLineAndCharacterOfPosition(start);
+                    const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                     nodes.push({
                         id: `${filePath}:${node.name.text}`,
                         type: 'Type',
                         name: node.name.text,
                         file: filePath,
-                        position: { line: pos.line, column: pos.character }
+                        position: { line: pos.line, column: pos.character },
+                        range: { start, end, startLine: pos.line, endLine: endPos.line },
+                        snippet: code.slice(start, Math.min(end, start + 240)),
+                        semantic: `TypeAlias ${node.name.text}`
                     });
                     nodeCount++;
                 }
             } else if (ts.isEnumDeclaration(node) && node.name) {
                 // 枚举声明
                 if (nodeCount < maxNodes) {
-                    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                    const start = node.getStart();
+                    const end = node.getEnd();
+                    const pos = sourceFile.getLineAndCharacterOfPosition(start);
+                    const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                     nodes.push({
                         id: `${filePath}:${node.name.text}`,
                         type: 'Enum',
                         name: node.name.text,
                         file: filePath,
-                        position: { line: pos.line, column: pos.character }
+                        position: { line: pos.line, column: pos.character },
+                        range: { start, end, startLine: pos.line, endLine: endPos.line },
+                        snippet: code.slice(start, Math.min(end, start + 240)),
+                        semantic: `Enum ${node.name.text}`
                     });
                     nodeCount++;
                 }
@@ -568,29 +624,41 @@ export function parseVueFile(filePath: string, options: ParseOptions = DEFAULT_O
             const maxNodes = Math.min(options.maxNodesPerFile! / 2, 50); // Vue文件限制更严格
 
             function visit(node: ts.Node) {
-                if (nodeCount >= maxNodes) return;
+                if (nodeCount >= maxNodes) { return; }
 
                 if (ts.isFunctionDeclaration(node) && node.name) {
                     const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                    nodes.push({
-                        id: `${filePath}:${node.name.text}`,
-                        type: 'Function',
-                        name: node.name.text,
-                        file: filePath,
-                        position: { line: pos.line, column: pos.character },
-                        extra: { isVueScript: true }
-                    });
+                        const start = node.getStart();
+                        const end = node.getEnd();
+                        const endPos = sourceFile.getLineAndCharacterOfPosition(end);
+                        nodes.push({
+                            id: `${filePath}:${node.name.text}`,
+                            type: 'Function',
+                            name: node.name.text,
+                            file: filePath,
+                            position: { line: pos.line, column: pos.character },
+                            range: { start, end, startLine: pos.line, endLine: endPos.line },
+                            snippet: allScript.slice(start, Math.min(end, start + 240)),
+                            semantic: `Vue Function ${node.name.text}`,
+                            extra: { isVueScript: true }
+                        });
                     nodeCount++;
                 } else if (ts.isClassDeclaration(node) && node.name) {
                     const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                    nodes.push({
-                        id: `${filePath}:${node.name.text}`,
-                        type: 'Class',
-                        name: node.name.text,
-                        file: filePath,
-                        position: { line: pos.line, column: pos.character },
-                        extra: { isVueScript: true }
-                    });
+                        const start = node.getStart();
+                        const end = node.getEnd();
+                        const endPos = sourceFile.getLineAndCharacterOfPosition(end);
+                        nodes.push({
+                            id: `${filePath}:${node.name.text}`,
+                            type: 'Class',
+                            name: node.name.text,
+                            file: filePath,
+                            position: { line: pos.line, column: pos.character },
+                            range: { start, end, startLine: pos.line, endLine: endPos.line },
+                            snippet: allScript.slice(start, Math.min(end, start + 240)),
+                            semantic: `Vue Class ${node.name.text}`,
+                            extra: { isVueScript: true }
+                        });
                     nodeCount++;
                 } else if (ts.isVariableStatement(node)) {
                     // 处理所有变量，包括Vue的响应式变量
@@ -610,12 +678,18 @@ export function parseVueFile(filePath: string, options: ParseOptions = DEFAULT_O
                                 extra.isComputed = true;
                             }
                             
+                            const start = decl.getStart();
+                            const end = decl.getEnd();
+                            const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                             nodes.push({
                                 id: `${filePath}:${varName}`,
                                 type: varType as NodeType,
                                 name: varName,
                                 file: filePath,
                                 position: { line: pos.line, column: pos.character },
+                                range: { start, end, startLine: pos.line, endLine: endPos.line },
+                                snippet: allScript.slice(start, Math.min(end, start + 240)),
+                                semantic: `Vue Variable ${varName}`,
                                 extra
                             });
                             nodeCount++;
@@ -640,11 +714,19 @@ export function parseVueFile(filePath: string, options: ParseOptions = DEFAULT_O
 
                     // 确保文件模块节点存在
                     if (!nodes.find(n => n.id === fileNodeId)) {
+                        const start = node.getStart();
+                        const end = node.getEnd();
+                        const pos = sourceFile.getLineAndCharacterOfPosition(start);
+                        const endPos = sourceFile.getLineAndCharacterOfPosition(end);
                         nodes.push({
                             id: fileNodeId,
                             type: 'Module',
                             name: path.basename(filePath),
                             file: filePath,
+                            position: { line: pos.line, column: pos.character },
+                            range: { start, end, startLine: pos.line, endLine: endPos.line },
+                            snippet: allScript.slice(start, Math.min(end, start + 240)),
+                            semantic: `Vue Module ${path.basename(filePath)}`,
                             extra: { isVueComponent: true }
                         });
                         nodeCount++;
@@ -696,16 +778,21 @@ export function parseVueFile(filePath: string, options: ParseOptions = DEFAULT_O
                 const MAX_TEMPLATE_NODES = 20; // 模板解析限额降低
 
                 function walkTemplate(node: any) {
-                    if (templateNodeCount >= MAX_TEMPLATE_NODES) return;
+                    if (templateNodeCount >= MAX_TEMPLATE_NODES) { return; }
                     if (node.type === 1) { // ELEMENT
                         // 只记录重要的组件，跳过普通HTML标签
                         if (node.tag && (node.tag[0] === node.tag[0].toUpperCase() || node.tag.includes('-'))) {
+                            const tStartLine = node.loc.start.line - 1;
+                            const tEndLine = node.loc.end.line - 1;
                             nodes.push({
                                 id: `${filePath}:template:${node.tag}:${node.loc.start.line}`,
                                 type: 'Module',
                                 name: node.tag,
                                 file: filePath,
-                                position: { line: node.loc.start.line - 1, column: node.loc.start.column - 1 },
+                                position: { line: tStartLine, column: node.loc.start.column - 1 },
+                                range: { start: 0, end: 0, startLine: tStartLine, endLine: tEndLine },
+                                snippet: (sfc.descriptor.template?.content || '').split('\n').slice(tStartLine, tEndLine + 1).join('\n').slice(0, 240) || '',
+                                semantic: `Template element ${node.tag}`,
                                 extra: { 
                                     isTemplateElement: true,
                                     directives: node.props?.map((p: any) => p.name).filter(Boolean) || []

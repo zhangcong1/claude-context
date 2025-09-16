@@ -19,6 +19,20 @@ let searchCommand: SearchCommand;
 let indexCommand: IndexCommand;
 let configManager: ConfigManager;
 
+// Helper: read code for a node with context lines
+function getCodeForNode(node: { file: string; range?: { startLine?: number; endLine?: number } }, contextLines = 8): string {
+  try {
+    const content = fs.readFileSync(node.file, 'utf8');
+    const lines = content.split('\n');
+    const startLine = Math.max(0, (node.range?.startLine || 0) - contextLines);
+    const endLine = Math.min(lines.length - 1, (node.range?.endLine || 0) + contextLines);
+    return lines.slice(startLine, endLine + 1).join('\n');
+  } catch (e) {
+    console.warn(`getCodeForNode failed reading ${node.file}:`, e);
+    return '';
+  }
+}
+
 export function activate(context: vscode.ExtensionContext) {
   console.log('GraphRAG Knowledge Graph extension is now active!');
 
@@ -327,6 +341,29 @@ export function activate(context: vscode.ExtensionContext) {
     generateUnifiedWikiCmd,
     statusBarItem
   );
+
+  // 注册命令：展示节点对应的代码片段（用于调试/展示）
+  const showNodeCodeCmd = vscode.commands.registerCommand('vscode-graphrag.showNodeCode', async () => {
+    const nodeId = await vscode.window.showInputBox({ prompt: '请输入要查看的节点 id（例如：src/services/auth.ts:login）' });
+    if (!nodeId) { return; }
+
+    const node = knowledgeGraph.getAllNodes().find(n => n.id === nodeId);
+    if (!node) {
+      vscode.window.showErrorMessage(`未找到节点: ${nodeId}`);
+      return;
+    }
+
+    const code = getCodeForNode(node, 10);
+    if (!code) {
+      vscode.window.showWarningMessage('无法读取或节点没有范围信息');
+      return;
+    }
+
+    const doc = await vscode.workspace.openTextDocument({ content: `// From: ${node.file} (${node.range?.startLine || '?'}-${node.range?.endLine || '?'})\n\n${code}`, language: 'typescript' });
+    await vscode.window.showTextDocument(doc, { preview: false });
+  });
+
+  context.subscriptions.push(showNodeCodeCmd);
 
   // 自动构建初始图谱
   buildKnowledgeGraph().catch(error => {
