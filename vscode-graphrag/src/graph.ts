@@ -13,8 +13,8 @@ export class KnowledgeGraph {
 
     // 添加边
     addEdge(edge: GraphEdge): void {
-        // 检查源节点和目标节点是否存在
-        if (this.nodes.has(edge.source) && this.nodes.has(edge.target)) {
+        // 检查源节点是否存在，如果目标是外部引用则也允许添加
+        if (this.nodes.has(edge.source)) {
             this.edges.add(edge);
             this.lastUpdated = new Date();
         }

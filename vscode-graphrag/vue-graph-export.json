@@ -1,0 +1,208 @@
+{
+  "nodes": [
+    {
+      "id": "./test-files/TestComponent.vue:module",
+      "type": "Module",
+      "name": "TestComponent.vue",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:imported:ref",
+      "type": "Variable",
+      "name": "ref",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:imported:computed",
+      "type": "Variable",
+      "name": "computed",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:imported:onMounted",
+      "type": "Variable",
+      "name": "onMounted",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:imported:useRouter",
+      "type": "Variable",
+      "name": "useRouter",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:imported:UserService",
+      "type": "Variable",
+      "name": "UserService",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:User",
+      "type": "Interface",
+      "name": "User",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:title",
+      "type": "Variable",
+      "name": "title",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:users",
+      "type": "Variable",
+      "name": "users",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:loading",
+      "type": "Variable",
+      "name": "loading",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:showModal",
+      "type": "Variable",
+      "name": "showModal",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:router",
+      "type": "Variable",
+      "name": "router",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:userService",
+      "type": "Variable",
+      "name": "userService",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:buttonText",
+      "type": "Variable",
+      "name": "buttonText",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:userCount",
+      "type": "Variable",
+      "name": "userCount",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:handleClick",
+      "type": "Variable",
+      "name": "handleClick",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:fetchUsers",
+      "type": "Variable",
+      "name": "fetchUsers",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:result",
+      "type": "Variable",
+      "name": "result",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:handleDeleteUser",
+      "type": "Variable",
+      "name": "handleDeleteUser",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:openModal",
+      "type": "Variable",
+      "name": "openModal",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:closeModal",
+      "type": "Variable",
+      "name": "closeModal",
+      "file": "TestComponent.vue"
+    },
+    {
+      "id": "./test-files/TestComponent.vue:navigateToProfile",
+      "type": "Variable",
+      "name": "navigateToProfile",
+      "file": "TestComponent.vue"
+    }
+  ],
+  "edges": [
+    {
+      "source": "./test-files/TestComponent.vue:module",
+      "target": "vue",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:imported:ref",
+      "target": "vue:ref",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:imported:computed",
+      "target": "vue:computed",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:imported:onMounted",
+      "target": "vue:onMounted",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:module",
+      "target": "vue-router",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:imported:useRouter",
+      "target": "vue-router:useRouter",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:module",
+      "target": "./UserCard.vue",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:module",
+      "target": "./services/UserService",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:imported:UserService",
+      "target": "./services/UserService:UserService",
+      "type": "引用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:handleClick",
+      "target": "fetchUsers",
+      "type": "调用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:handleClick",
+      "target": "console.error",
+      "type": "调用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:fetchUsers",
+      "target": "userService.getAllUsers",
+      "type": "调用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:handleDeleteUser",
+      "target": "users.value.filter",
+      "type": "调用"
+    },
+    {
+      "source": "./test-files/TestComponent.vue:navigateToProfile",
+      "target": "router.push",
+      "type": "调用"
+    }
+  ]
+}

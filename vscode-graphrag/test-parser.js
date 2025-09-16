@@ -1,9 +1,49 @@
 // 测试Parser功能的脚本
 const fs = require('fs');
+const { parseTsFile } = require('./dist/parser-optimized');
 const path = require('path');
 
-// 导入编译后的parser模块
-const { parseTsFile, parseVueFile } = require('./dist/parser');
+// 测试解析 sample.ts 文件
+const testFile = path.join(__dirname, 'test-files', 'sample.ts');
+
+console.log('测试解析文件:', testFile);
+console.log('==========================================');
+
+try {
+    const result = parseTsFile(testFile);
+    
+    console.log('解析结果:');
+    console.log('节点数量:', result.nodes.length);
+    console.log('边数量:', result.edges.length);
+    console.log('');
+    
+    console.log('知识图谱结构 (符合你要求的格式):');
+    const graphStructure = {
+        nodes: result.nodes.map(node => ({
+            id: node.id,
+            type: node.type,
+            name: node.name,
+            file: node.file
+        })),
+        edges: result.edges.map(edge => ({
+            source: edge.source,
+            target: edge.target,
+            type: edge.relation
+        }))
+    };
+    
+    console.log(JSON.stringify(graphStructure, null, 2));
+    
+    console.log('');
+    console.log('统计信息:');
+    console.log('- 文件大小:', result.stats.fileSize, 'bytes');
+    console.log('- 解析时间:', result.stats.parseTime, 'ms');
+    console.log('- 节点类型分布:', result.stats.nodeTypes);
+    console.log('- 关系类型分布:', result.stats.relationTypes);
+    
+} catch (error) {
+    console.error('解析失败:', error);
+}
 
 console.log('🧪 开始测试GraphRAG Parser...\n');
 

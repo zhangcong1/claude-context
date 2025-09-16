@@ -4,10 +4,20 @@ import * as fs from 'fs';
 import { parseTsFile, parseVueFile, GraphNode, GraphEdge } from './parser-optimized';
 import { KnowledgeGraph } from './graph';
 import { GraphViewer } from './webview/graphViewer';
+import { ConfigManager } from './config/configManager';
+import { SearchCommand } from './commands/searchCommand';
+import { IndexCommand } from './commands/indexCommand';
+const WikiGenerator = require('./wikiGenerator');
+const AIWikiGenerator = require('./aiWikiGenerator');
+const BusinessWikiGenerator = require('./businessWikiGenerator');
+const UnifiedWikiGenerator = require('./unifiedWikiGenerator');
 
 let knowledgeGraph: KnowledgeGraph;
 let graphViewer: GraphViewer;
 let fileWatcher: vscode.FileSystemWatcher | undefined;
+let searchCommand: SearchCommand;
+let indexCommand: IndexCommand;
+let configManager: ConfigManager;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('GraphRAG Knowledge Graph extension is now active!');
@@ -15,6 +25,9 @@ export function activate(context: vscode.ExtensionContext) {
   // 初始化知识图谱
   knowledgeGraph = new KnowledgeGraph();
   graphViewer = new GraphViewer(knowledgeGraph);
+  configManager = ConfigManager.getInstance();
+  searchCommand = new SearchCommand(knowledgeGraph);
+  indexCommand = new IndexCommand(knowledgeGraph);
 
   // 注册"构建知识图谱"命令
   const buildGraphCmd = vscode.commands.registerCommand('vscode-graphrag.buildGraph', async () => {
@@ -103,6 +116,193 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
+  // 注册"语义搜索"命令
+  const semanticSearchCmd = vscode.commands.registerCommand('vscode-graphrag.semanticSearch', async () => {
+    await searchCommand.execute();
+  });
+
+  // 注册"生成项目Wiki"命令
+  const generateWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateWiki', async () => {
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: '生成项目Wiki文档',
+      cancellable: false
+    }, async (progress) => {
+      try {
+        progress.report({ message: '分析项目结构...' });
+        
+        const wikiGenerator = new WikiGenerator();
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+          vscode.window.showErrorMessage('未找到工作区文件夹');
+          return;
+        }
+
+        const files = getAllCodeFiles(workspaceFolders[0].uri.fsPath, workspaceFolders[0].uri.fsPath);
+        await wikiGenerator.analyzeProject(files);
+        
+        progress.report({ message: '生成Wiki文档...' });
+        const wikiDir = await wikiGenerator.generateWiki('./project-wiki');
+        
+        vscode.window.showInformationMessage(
+          `Wiki文档生成成功！位置: ${wikiDir}`,
+          '打开文件夹'
+        ).then(selection => {
+          if (selection === '打开文件夹') {
+            vscode.env.openExternal(vscode.Uri.file(wikiDir));
+          }
+        });
+      } catch (error) {
+        vscode.window.showErrorMessage(`Wiki生成失败: ${error}`);
+      }
+    });
+  });
+
+  // 注册"生成AI增强Wiki"命令
+  const generateAIWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateAIWiki', async () => {
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: '生成AI增强Wiki文档',
+      cancellable: false
+    }, async (progress) => {
+      try {
+        progress.report({ message: 'AI分析项目结构...' });
+        
+        const aiWikiGenerator = new AIWikiGenerator();
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+          vscode.window.showErrorMessage('未找到工作区文件夹');
+          return;
+        }
+
+        const files = getAllCodeFiles(workspaceFolders[0].uri.fsPath, workspaceFolders[0].uri.fsPath);
+        await aiWikiGenerator.analyzeProject(files);
+        
+        progress.report({ message: '生成AI增强文档...' });
+        const wikiDir = await aiWikiGenerator.generateEnhancedWiki('./ai-enhanced-wiki');
+        
+        vscode.window.showInformationMessage(
+          `AI增强Wiki文档生成成功！位置: ${wikiDir}`,
+          '打开文件夹',
+          '查看AI分析报告'
+        ).then(selection => {
+          if (selection === '打开文件夹') {
+            vscode.env.openExternal(vscode.Uri.file(wikiDir));
+          } else if (selection === '查看AI分析报告') {
+            vscode.workspace.openTextDocument(path.join(wikiDir, 'ai-summary.md')).then(doc => {
+              vscode.window.showTextDocument(doc);
+            });
+          }
+        });
+      } catch (error) {
+        vscode.window.showErrorMessage(`AI Wiki生成失败: ${error}`);
+      }
+    });
+  });
+
+  // 注册"生成统一Wiki"命令
+  const generateUnifiedWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateUnifiedWiki', async () => {
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: '生成统一知识图谱Wiki',
+      cancellable: false
+    }, async (progress) => {
+      try {
+        progress.report({ message: '分析项目结构...' });
+        
+        const unifiedWikiGenerator = new UnifiedWikiGenerator();
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+          vscode.window.showErrorMessage('未找到工作区文件夹');
+          return;
+        }
+
+        await unifiedWikiGenerator.analyzeProject(workspaceFolders[0].uri.fsPath);
+        
+        progress.report({ message: '生成统一Wiki文档...' });
+        const wikiContent = await unifiedWikiGenerator.generateUnifiedWiki();
+        
+        // 保存到文件
+        const outputPath = path.join(workspaceFolders[0].uri.fsPath, 'unified-wiki.md');
+        fs.writeFileSync(outputPath, wikiContent, 'utf8');
+        
+        vscode.window.showInformationMessage(
+          `统一知识图谱Wiki生成成功！位置: ${outputPath}`,
+          '打开文件',
+          '查看概览'
+        ).then(selection => {
+          if (selection === '打开文件') {
+            vscode.workspace.openTextDocument(outputPath).then(doc => {
+              vscode.window.showTextDocument(doc);
+            });
+          } else if (selection === '查看概览') {
+            // 打开统一概览部分
+            vscode.workspace.openTextDocument(outputPath).then(doc => {
+              vscode.window.showTextDocument(doc).then(editor => {
+                const text = doc.getText();
+                const overviewIndex = text.indexOf('## 统一项目概览');
+                if (overviewIndex !== -1) {
+                  const position = doc.positionAt(overviewIndex);
+                  editor.selection = new vscode.Selection(position, position);
+                  editor.revealRange(new vscode.Range(position, position));
+                }
+              });
+            });
+          }
+        });
+      } catch (error) {
+        vscode.window.showErrorMessage(`统一Wiki生成失败: ${error}`);
+      }
+    });
+  });
+
+  // 注册"生成业务Wiki"命令
+  const generateBusinessWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateBusinessWiki', async () => {
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: '生成业务Wiki文档',
+      cancellable: false
+    }, async (progress) => {
+      try {
+        progress.report({ message: '分析业务逻辑...' });
+        
+        const businessWikiGenerator = new BusinessWikiGenerator();
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+          vscode.window.showErrorMessage('未找到工作区文件夹');
+          return;
+        }
+
+        const files = getAllCodeFiles(workspaceFolders[0].uri.fsPath, workspaceFolders[0].uri.fsPath);
+        await businessWikiGenerator.analyzeBusinessLogic(files);
+        
+        progress.report({ message: '生成业务文档...' });
+        const wikiDir = await businessWikiGenerator.generateBusinessWiki('./business-wiki');
+        
+        vscode.window.showInformationMessage(
+          `业务Wiki文档生成成功！位置: ${wikiDir}`,
+          '打开文件夹',
+          '查看业务功能'
+        ).then(selection => {
+          if (selection === '打开文件夹') {
+            vscode.env.openExternal(vscode.Uri.file(wikiDir));
+          } else if (selection === '查看业务功能') {
+            vscode.workspace.openTextDocument(path.join(wikiDir, 'features.md')).then(doc => {
+              vscode.window.showTextDocument(doc);
+            });
+          }
+        });
+      } catch (error) {
+        vscode.window.showErrorMessage(`业务Wiki生成失败: ${error}`);
+      }
+    });
+  });
+
+  // 注册"索引代码库"命令
+  const indexCodebaseCmd = vscode.commands.registerCommand('vscode-graphrag.indexCodebase', async () => {
+    await indexCommand.execute();
+  });
+
   // 设置文件监听器
   setupFileWatcher(context);
 
@@ -119,6 +319,12 @@ export function activate(context: vscode.ExtensionContext) {
     exportGraphCmd,
     importGraphCmd,
     clearGraphCmd,
+    semanticSearchCmd,
+    indexCodebaseCmd,
+    generateWikiCmd,
+    generateAIWikiCmd,
+    generateBusinessWikiCmd,
+    generateUnifiedWikiCmd,
     statusBarItem
   );
 
@@ -129,13 +335,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function buildKnowledgeGraph(): Promise<void> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders) {
-    vscode.window.showErrorMessage('未找到工作区文件夹');
-    return;
-  }
-
-  const rootPath = workspaceFolders[0].uri.fsPath;
+  const config = configManager.getConfig();
 
   // 显示进度
   await vscode.window.withProgress({
@@ -145,54 +345,58 @@ async function buildKnowledgeGraph(): Promise<void> {
   }, async (progress, token) => {
     progress.report({ message: '扫描项目文件...' });
 
-    // 获取所有代码文件
-    const codeFiles = getAllCodeFiles(rootPath, rootPath);
-
-    if (token.isCancellationRequested) return;
-
-    progress.report({ message: `解析 ${codeFiles.length} 个文件...`, increment: 0 });
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+      vscode.window.showErrorMessage('未找到工作区文件夹');
+      return;
+    }
 
     // 清空现有图谱
     knowledgeGraph.clear();
 
+    let totalFiles = 0;
     let processedFiles = 0;
-    const totalFiles = codeFiles.length;
 
-    for (const file of codeFiles) {
-      if (token.isCancellationRequested) return;
+    for (const folder of workspaceFolders) {
+      const files = getAllCodeFiles(folder.uri.fsPath, folder.uri.fsPath);
+      totalFiles += files.length;
 
-      try {
-        let result: { nodes: GraphNode[]; edges: GraphEdge[] };
+      for (const file of files) {
+        if (token.isCancellationRequested) return;
 
-        if (file.endsWith('.vue')) {
-          const nodes = parseVueFile(file, {
-            maxNodesPerFile: 50,
-            maxFileSize: 50 * 1024,
-            skipMinifiedFiles: true,
-            skipTestFiles: true,
-            includeTemplate: false
+        try {
+          let result: { nodes: GraphNode[]; edges: GraphEdge[] };
+
+          if (file.endsWith('.vue')) {
+            const nodes = parseVueFile(file, {
+              maxNodesPerFile: config.maxNodesPerFile,
+              maxFileSize: config.maxFileSizeKB * 1024,
+              skipMinifiedFiles: true,
+              skipTestFiles: true,
+              includeTemplate: config.includeTemplate
+            });
+            result = { nodes, edges: [] };
+          } else {
+            result = parseTsFile(file, {
+              maxNodesPerFile: config.maxNodesPerFile,
+              maxFileSize: config.maxFileSizeKB * 1024,
+              skipMinifiedFiles: true,
+              skipTestFiles: true
+            });
+          }
+
+          knowledgeGraph.addNodes(result.nodes);
+          knowledgeGraph.addEdges(result.edges);
+
+          processedFiles++;
+          progress.report({
+            message: `解析 ${file.split(path.sep).pop()}...`,
+            increment: (100 / totalFiles)
           });
-          result = { nodes, edges: [] };
-        } else {
-          result = parseTsFile(file, {
-            maxNodesPerFile: 100,
-            maxFileSize: 50 * 1024,
-            skipMinifiedFiles: true,
-            skipTestFiles: true
-          });
+
+        } catch (error) {
+          console.warn(`Failed to parse ${file}:`, error);
         }
-
-        knowledgeGraph.addNodes(result.nodes);
-        knowledgeGraph.addEdges(result.edges);
-
-        processedFiles++;
-        progress.report({
-          message: `解析 ${file.split(path.sep).pop()}...`,
-          increment: (100 / totalFiles)
-        });
-
-      } catch (error) {
-        console.warn(`Failed to parse ${file}:`, error);
       }
     }
 

@@ -1,3 +1,15 @@
+// 知识图谱结构
+export interface KnowledgeGraph {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+}
+
+export interface ParseResult {
+    graph: KnowledgeGraph;
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    stats: ParseStats;
+}
 export interface GraphEdge {
     source: string;
     target: string;
@@ -93,7 +105,7 @@ function shouldSkipFile(filePath: string, options: ParseOptions): boolean {
 }
 
 // 解析 .ts/.js 文件（优化版本）
-export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OPTIONS): { nodes: GraphNode[]; edges: GraphEdge[]; stats: ParseStats } {
+export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OPTIONS): ParseResult {
     const startTime = Date.now();
     const ext = path.extname(filePath).toLowerCase();
     let code: string;
@@ -103,6 +115,7 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
     // 检查是否应该跳过文件
     if (shouldSkipFile(filePath, options)) {
         return {
+            graph: { nodes, edges },
             nodes,
             edges,
             stats: {
@@ -124,6 +137,7 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
         if (code.length > options.maxFileSize!) {
             console.warn(`跳过过大文件: ${filePath} (${code.length} 字符)`);
             return {
+                graph: { nodes, edges },
                 nodes,
                 edges,
                 stats: {
@@ -140,6 +154,7 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
     } catch (error) {
         console.warn(`Failed to read file ${filePath}:`, error);
         return {
+            graph: { nodes, edges },
             nodes,
             edges,
             stats: {
@@ -154,7 +169,32 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
         };
     }
 
-    if (ext === '.ts' || ext === '.js') {
+    if (ext === '.ts' || ext === '.js' || ext === '.vue') {
+        // 对于Vue文件，首先尝试解析SFC结构
+        if (ext === '.vue') {
+            try {
+                const sfc = parseSFC(code);
+                const scriptContent = sfc.descriptor.script?.content || '';
+                const scriptSetupContent = sfc.descriptor.scriptSetup?.content || '';
+                const allScript = scriptContent + '\n' + scriptSetupContent;
+                
+                if (allScript.trim()) {
+                    code = allScript; // 用脚本内容替换原始代码
+                } else {
+                    // 如果没有脚本内容，只创建Vue组件节点
+                    nodes.push({
+                        id: `${filePath}:component`,
+                        type: 'Module',
+                        name: path.basename(filePath, '.vue'),
+                        file: filePath,
+                        extra: { isVueComponent: true, hasScript: false }
+                    });
+                }
+            } catch (error) {
+                console.warn(`Failed to parse Vue SFC ${filePath}:`, error);
+                // 降级为普通文件处理
+            }
+        }
         const sourceFile = ts.createSourceFile(
             filePath,
             code,
@@ -223,33 +263,106 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
                     });
                 }
             } else if (ts.isImportDeclaration(node)) {
-                // 模块导入关系 - 只记录重要的导入
+                // 模块导入关系
                 const importPath = node.moduleSpecifier.getText().replace(/['"]/g, '');
-                if (!importPath.startsWith('.') || nodeCount < maxNodes) { // 限制相对导入
-                    const fileNodeId = `${filePath}:module`;
+                const fileNodeId = `${filePath}:module`;
 
-                    // 确保文件模块节点存在
-                    if (!nodes.find(n => n.id === fileNodeId)) {
-                        nodes.push({
-                            id: fileNodeId,
-                            type: 'Module',
-                            name: path.basename(filePath),
-                            file: filePath
+                // 确保文件模块节点存在
+                if (!nodes.find(n => n.id === fileNodeId)) {
+                    nodes.push({
+                        id: fileNodeId,
+                        type: 'Module',
+                        name: path.basename(filePath),
+                        file: filePath
+                    });
+                    nodeCount++;
+                }
+
+                edges.push({
+                    source: fileNodeId,
+                    target: importPath,
+                    relation: 'imports'
+                });
+
+                // 处理具体的导入项（命名导入）
+                if (node.importClause) {
+                    const importClause = node.importClause;
+                    if (importClause.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
+                        importClause.namedBindings.elements.forEach(element => {
+                            const importedName = element.name.text;
+                            // 为导入的具体项创建节点
+                            const importedNodeId = `${filePath}:imported:${importedName}`;
+                            nodes.push({
+                                id: importedNodeId,
+                                type: 'Variable',
+                                name: importedName,
+                                file: filePath,
+                                extra: { isImported: true, from: importPath }
+                            });
+                            nodeCount++;
+
+                            // 添加导入关系
+                            edges.push({
+                                source: importedNodeId,
+                                target: `${importPath}:${importedName}`,
+                                relation: 'imports'
+                            });
                         });
-                        nodeCount++;
                     }
+                }
+            } else if (ts.isCallExpression(node)) {
+                // 函数调用关系 - 更精确的调用者识别
+                const calleeName = node.expression.getText();
+                
+                // 寻找调用者所在的函数/方法
+                let currentParent = node.parent;
+                let callerNode: GraphNode | undefined;
 
+                while (currentParent && !callerNode) {
+                    if (ts.isFunctionDeclaration(currentParent) && currentParent.name) {
+                        callerNode = nodes.find(n => n.id === `${filePath}:${(currentParent as ts.FunctionDeclaration).name?.text}`);
+                        break;
+                    } else if (ts.isMethodDeclaration(currentParent)) {
+                        const methodName = (currentParent.name as ts.Identifier)?.text;
+                        if (methodName) {
+                            callerNode = nodes.find(n => n.id === `${filePath}:${methodName}`);
+                            break;
+                        }
+                    } else if (ts.isConstructorDeclaration(currentParent)) {
+                        // 在构造函数中的调用
+                        let classNode = currentParent.parent;
+                        if (ts.isClassDeclaration(classNode) && classNode.name) {
+                            callerNode = nodes.find(n => n.id === `${filePath}:${classNode.name?.text}`);
+                            break;
+                        }
+                    } else if (ts.isArrowFunction(currentParent)) {
+                        // 箭头函数中的调用
+                        let varDecl = currentParent.parent;
+                        if (ts.isVariableDeclaration(varDecl) && ts.isIdentifier(varDecl.name)) {
+                            callerNode = nodes.find(n => n.id === `${filePath}:${(varDecl.name as ts.Identifier).text}`);
+                            break;
+                        }
+                    }
+                    currentParent = currentParent.parent;
+                }
+
+                if (callerNode) {
                     edges.push({
-                        source: fileNodeId,
-                        target: importPath,
-                        relation: 'imports'
+                        source: callerNode.id,
+                        target: calleeName,
+                        relation: 'calls',
+                        extra: { 
+                            args: node.arguments.length,
+                            argTypes: node.arguments.map(arg => arg.kind)
+                        }
                     });
                 }
+                // 方法声明 - 只处理公共方法
             } else if (ts.isMethodDeclaration(node)) {
                 // 方法声明 - 只处理公共方法
                 const methodName = (node.name as ts.Identifier)?.text;
                 if (methodName && nodeCount < maxNodes) {
-                    const isPublic = !node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.PrivateKeyword);
+                    const isPublic = !node.modifiers?.some((mod: any) => mod.kind === ts.SyntaxKind.PrivateKeyword);
                     if (isPublic) {
                         const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
                         nodes.push({
@@ -381,7 +494,8 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
             name: path.basename(filePath),
             file: filePath
         });
-    } else {
+    } else if (ext !== '.vue') {
+        // 不包括Vue文件，因为Vue文件已经在上面处理了
         nodes.push({
             id: `${filePath}:other`,
             type: 'Other',
@@ -414,7 +528,16 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
         relationTypes
     };
 
-    return { nodes, edges, stats };
+    // 返回标准知识图谱结构
+    return {
+        graph: {
+            nodes,
+            edges
+        },
+        nodes,
+        edges,
+        stats
+    };
 }
 
 // 解析 .vue 文件（优化版本）
@@ -423,104 +546,187 @@ export function parseVueFile(filePath: string, options: ParseOptions = DEFAULT_O
         return [];
     }
 
-    const code = fs.readFileSync(filePath, 'utf8');
-    const sfc = parseSFC(code);
-    const nodes: GraphNode[] = [];
+    try {
+        const code = fs.readFileSync(filePath, 'utf8');
+        const sfc = parseSFC(code);
+        const nodes: GraphNode[] = [];
 
-    // 解析 <script> 和 <script setup>
-    const scriptContent = sfc.descriptor.script?.content || '';
-    const scriptSetupContent = sfc.descriptor.scriptSetup?.content || '';
-    const allScript = scriptContent + '\n' + scriptSetupContent;
+        // 解析 <script> 和 <script setup>
+        const scriptContent = sfc.descriptor.script?.content || '';
+        const scriptSetupContent = sfc.descriptor.scriptSetup?.content || '';
+        const allScript = scriptContent + '\n' + scriptSetupContent;
 
-    if (allScript.trim()) {
-        const sourceFile = ts.createSourceFile(
-            filePath,
-            allScript,
-            ts.ScriptTarget.Latest,
-            true
-        );
+        if (allScript.trim()) {
+            const sourceFile = ts.createSourceFile(
+                filePath,
+                allScript,
+                ts.ScriptTarget.Latest,
+                true
+            );
 
-        let nodeCount = 0;
-        const maxNodes = Math.min(options.maxNodesPerFile! / 2, 50); // Vue文件限制更严格
+            let nodeCount = 0;
+            const maxNodes = Math.min(options.maxNodesPerFile! / 2, 50); // Vue文件限制更严格
 
-        function visit(node: ts.Node) {
-            if (nodeCount >= maxNodes) return;
+            function visit(node: ts.Node) {
+                if (nodeCount >= maxNodes) return;
 
-            if (ts.isFunctionDeclaration(node) && node.name) {
-                const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                nodes.push({
-                    id: `${filePath}:${node.name.text}`,
-                    type: 'Function',
-                    name: node.name.text,
-                    file: filePath,
-                    position: { line: pos.line, column: pos.character }
-                });
-                nodeCount++;
-            } else if (ts.isClassDeclaration(node) && node.name) {
-                const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-                nodes.push({
-                    id: `${filePath}:${node.name.text}`,
-                    type: 'Class',
-                    name: node.name.text,
-                    file: filePath,
-                    position: { line: pos.line, column: pos.character }
-                });
-                nodeCount++;
-            } else if (ts.isVariableStatement(node)) {
-                // 只处理导出的变量
-                const isExported = node.modifiers?.some(mod => mod.kind === ts.SyntaxKind.ExportKeyword);
-                if (isExported && nodeCount < maxNodes) {
+                if (ts.isFunctionDeclaration(node) && node.name) {
+                    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                    nodes.push({
+                        id: `${filePath}:${node.name.text}`,
+                        type: 'Function',
+                        name: node.name.text,
+                        file: filePath,
+                        position: { line: pos.line, column: pos.character },
+                        extra: { isVueScript: true }
+                    });
+                    nodeCount++;
+                } else if (ts.isClassDeclaration(node) && node.name) {
+                    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+                    nodes.push({
+                        id: `${filePath}:${node.name.text}`,
+                        type: 'Class',
+                        name: node.name.text,
+                        file: filePath,
+                        position: { line: pos.line, column: pos.character },
+                        extra: { isVueScript: true }
+                    });
+                    nodeCount++;
+                } else if (ts.isVariableStatement(node)) {
+                    // 处理所有变量，包括Vue的响应式变量
                     node.declarationList.declarations.forEach((decl: ts.VariableDeclaration) => {
-                        if (ts.isIdentifier(decl.name)) {
+                        if (ts.isIdentifier(decl.name) && nodeCount < maxNodes) {
                             const pos = sourceFile.getLineAndCharacterOfPosition(decl.getStart());
+                            const varName = decl.name.text;
+                            
+                            // 检测Vue特殊变量
+                            let varType = 'Variable';
+                            let extra: Record<string, any> = { isVueScript: true };
+                            
+                            if (varName.includes('ref') || varName.includes('reactive')) {
+                                extra.isReactive = true;
+                            }
+                            if (varName.includes('computed')) {
+                                extra.isComputed = true;
+                            }
+                            
                             nodes.push({
-                                id: `${filePath}:${decl.name.text}`,
-                                type: 'Variable',
-                                name: decl.name.text,
+                                id: `${filePath}:${varName}`,
+                                type: varType as NodeType,
+                                name: varName,
                                 file: filePath,
-                                position: { line: pos.line, column: pos.character }
+                                position: { line: pos.line, column: pos.character },
+                                extra
                             });
                             nodeCount++;
                         }
                     });
-                }
-            }
-            ts.forEachChild(node, visit);
-        }
-        visit(sourceFile);
-    }
-
-    // 按开关解析 <template>（默认关闭）
-    if (options.includeTemplate && sfc.descriptor.template && sfc.descriptor.template.content) {
-        try {
-            const { parse: parseTemplate } = require('@vue/compiler-dom');
-            const templateAst = parseTemplate(sfc.descriptor.template.content);
-
-            let templateNodeCount = 0;
-            const MAX_TEMPLATE_NODES = 50; // 模板解析限额
-
-            function walkTemplate(node: any) {
-                if (templateNodeCount >= MAX_TEMPLATE_NODES) return;
-                if (node.type === 1) { // ELEMENT
+                } else if (ts.isInterfaceDeclaration(node) && node.name) {
+                    // Vue接口声明
+                    const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
                     nodes.push({
-                        id: `${filePath}:template:${node.tag}:${node.loc.start.line}`,
-                        type: 'Module',
-                        name: node.tag,
+                        id: `${filePath}:${node.name.text}`,
+                        type: 'Interface',
+                        name: node.name.text,
                         file: filePath,
-                        position: { line: node.loc.start.line - 1, column: node.loc.start.column - 1 },
-                        extra: { directives: node.props?.map((p: any) => p.name).filter(Boolean) }
+                        position: { line: pos.line, column: pos.character },
+                        extra: { isVueScript: true }
                     });
-                    templateNodeCount++;
-                }
-                if (node.children) {
-                    node.children.forEach(walkTemplate);
-                }
-            }
-            walkTemplate(templateAst);
-        } catch (e) {
-            // 解析失败忽略
-        }
-    }
+                    nodeCount++;
+                } else if (ts.isImportDeclaration(node)) {
+                    // Vue导入声明
+                    const importPath = node.moduleSpecifier.getText().replace(/['"]/g, '');
+                    const fileNodeId = `${filePath}:module`;
 
-    return nodes;
+                    // 确保文件模块节点存在
+                    if (!nodes.find(n => n.id === fileNodeId)) {
+                        nodes.push({
+                            id: fileNodeId,
+                            type: 'Module',
+                            name: path.basename(filePath),
+                            file: filePath,
+                            extra: { isVueComponent: true }
+                        });
+                        nodeCount++;
+                    }
+
+                    // 处理具体的导入项（命名导入）
+                    if (node.importClause) {
+                        const importClause = node.importClause;
+                        if (importClause.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
+                            importClause.namedBindings.elements.forEach(element => {
+                                const importedName = element.name.text;
+                                nodes.push({
+                                    id: `${filePath}:imported:${importedName}`,
+                                    type: 'Variable',
+                                    name: importedName,
+                                    file: filePath,
+                                    extra: { isImported: true, from: importPath, isVueScript: true }
+                                });
+                                nodeCount++;
+                            });
+                        }
+                        
+                        // 处理默认导入
+                        if (importClause.name) {
+                            const defaultImportName = importClause.name.text;
+                            nodes.push({
+                                id: `${filePath}:imported:${defaultImportName}`,
+                                type: 'Variable',
+                                name: defaultImportName,
+                                file: filePath,
+                                extra: { isImported: true, from: importPath, isDefault: true, isVueScript: true }
+                            });
+                            nodeCount++;
+                        }
+                    }
+                }
+                ts.forEachChild(node, visit);
+            }
+            visit(sourceFile);
+        }
+
+        // 按开关解析 <template>（默认关闭）
+        if (options.includeTemplate && sfc.descriptor.template && sfc.descriptor.template.content) {
+            try {
+                const { parse: parseTemplate } = require('@vue/compiler-dom');
+                const templateAst = parseTemplate(sfc.descriptor.template.content);
+
+                let templateNodeCount = 0;
+                const MAX_TEMPLATE_NODES = 20; // 模板解析限额降低
+
+                function walkTemplate(node: any) {
+                    if (templateNodeCount >= MAX_TEMPLATE_NODES) return;
+                    if (node.type === 1) { // ELEMENT
+                        // 只记录重要的组件，跳过普通HTML标签
+                        if (node.tag && (node.tag[0] === node.tag[0].toUpperCase() || node.tag.includes('-'))) {
+                            nodes.push({
+                                id: `${filePath}:template:${node.tag}:${node.loc.start.line}`,
+                                type: 'Module',
+                                name: node.tag,
+                                file: filePath,
+                                position: { line: node.loc.start.line - 1, column: node.loc.start.column - 1 },
+                                extra: { 
+                                    isTemplateElement: true,
+                                    directives: node.props?.map((p: any) => p.name).filter(Boolean) || []
+                                }
+                            });
+                            templateNodeCount++;
+                        }
+                    }
+                    if (node.children) {
+                        node.children.forEach(walkTemplate);
+                    }
+                }
+                walkTemplate(templateAst);
+            } catch (e) {
+                console.warn(`Vue template parsing failed for ${filePath}:`, e);
+            }
+        }
+
+        return nodes;
+    } catch (error) {
+        console.warn(`Failed to parse Vue file ${filePath}:`, error);
+        return [];
+    }
 }
