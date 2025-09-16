@@ -111,7 +111,7 @@ function shouldSkipFile(filePath: string, options: ParseOptions): boolean {
 }
 
 // 解析 .ts/.js 文件（优化版本）
-export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OPTIONS): ParseResult {
+export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OPTIONS, checker?: ts.TypeChecker): ParseResult {
     const startTime = Date.now();
     const ext = path.extname(filePath).toLowerCase();
     let code: string;
@@ -345,7 +345,7 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
             } else if (ts.isCallExpression(node)) {
                 // 函数调用关系 - 更精确的调用者识别
                 const calleeName = node.expression.getText();
-                
+
                 // 寻找调用者所在的函数/方法
                 let currentParent = node.parent;
                 let callerNode: GraphNode | undefined;
@@ -379,13 +379,32 @@ export function parseTsFile(filePath: string, options: ParseOptions = DEFAULT_OP
                 }
 
                 if (callerNode) {
+                    // try to resolve callee to a symbol using TypeChecker if available
+                    let resolvedTarget = calleeName;
+                    try {
+                        if (checker) {
+                            const symbol = checker.getSymbolAtLocation(node.expression as any);
+                            if (symbol) {
+                                const decl = symbol.getDeclarations()?.[0];
+                                if (decl && decl.getSourceFile) {
+                                    const declFile = decl.getSourceFile().fileName;
+                                    const declName = symbol.getName ? symbol.getName() : calleeName;
+                                    resolvedTarget = `${declFile}:${declName}`;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // ignore type checker failures and fallback to text
+                    }
+
                     edges.push({
                         source: callerNode.id,
-                        target: calleeName,
+                        target: resolvedTarget,
                         relation: 'calls',
                         extra: { 
                             args: node.arguments.length,
-                            argTypes: node.arguments.map(arg => arg.kind)
+                            argTypes: node.arguments.map(arg => arg.kind),
+                            calleeText: calleeName
                         }
                     });
                 }
