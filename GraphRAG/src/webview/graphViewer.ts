@@ -249,7 +249,13 @@ export class GraphViewer {
                 <option value="Style">样式</option>
                 <option value="Other">其他</option>
             </select>
+            <select id="layoutType">
+                <option value="grid">网格布局</option>
+                <option value="circle">圆形布局</option>
+                <option value="force">力导向布局</option>
+            </select>
             <button id="refreshBtn">刷新</button>
+            <button id="resetLayoutBtn">重新布局</button>
         </div>
     </div>
     
@@ -297,11 +303,8 @@ export class GraphViewer {
             
         svg.call(zoom);
         
-        // 力导向图
-        const simulation = d3.forceSimulation()
-            .force('link', d3.forceLink().id(d => d.id).distance(100))
-            .force('charge', d3.forceManyBody().strength(-300))
-            .force('center', d3.forceCenter(width / 2, height / 2));
+        // 创建力导向图模拟器（初始为空，在updateGraph中配置）
+        let simulation = d3.forceSimulation();
         
         // 事件监听
         document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -320,6 +323,14 @@ export class GraphViewer {
         
         document.getElementById('refreshBtn').addEventListener('click', () => {
             vscode.postMessage({ command: 'getGraphData' });
+        });
+        
+        document.getElementById('resetLayoutBtn').addEventListener('click', () => {
+            resetLayout();
+        });
+        
+        document.getElementById('layoutType').addEventListener('change', (e) => {
+            applyLayout(e.target.value);
         });
         
         // 处理来自扩展的消息
@@ -346,15 +357,95 @@ export class GraphViewer {
             // 清除现有内容
             g.selectAll('*').remove();
             
+            // 如果没有数据，显示提示
+            if (!graphData.nodes || graphData.nodes.length === 0) {
+                g.append('text')
+                    .attr('x', width / 2)
+                    .attr('y', height / 2)
+                    .attr('text-anchor', 'middle')
+                    .text('暂无图谱数据')
+                    .style('font-size', '16px')
+                    .style('fill', 'var(--vscode-descriptionForeground)');
+                return;
+            }
+            
+            // 停止之前的仿真
+            simulation.stop();
+            
+            // 根据节点数量设置适合的布局参数
+            const nodeCount = graphData.nodes.length;
+            console.log('节点数量:', nodeCount);
+            
+            // 使用网格布局初始化节点位置，避免重叠
+            const cols = Math.ceil(Math.sqrt(nodeCount));
+            const rows = Math.ceil(nodeCount / cols);
+            const cellWidth = (width - 100) / cols;
+            const cellHeight = (height - 100) / rows;
+            
+            graphData.nodes.forEach((node, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                
+                // 初始网格位置 + 随机偏移
+                node.x = 50 + col * cellWidth + cellWidth / 2 + (Math.random() - 0.5) * cellWidth * 0.3;
+                node.y = 50 + row * cellHeight + cellHeight / 2 + (Math.random() - 0.5) * cellHeight * 0.3;
+                
+                // 清除之前的固定位置
+                node.fx = null;
+                node.fy = null;
+            });
+            
+            // 重新配置力导向图参数
+            const linkDistance = Math.max(80, Math.min(200, 400 / Math.sqrt(nodeCount)));
+            const chargeStrength = Math.max(-2000, -300 * Math.sqrt(nodeCount));
+            const collisionRadius = Math.max(15, 30 - nodeCount * 0.2);
+            
+            console.log('力导向图参数:', {
+                linkDistance,
+                chargeStrength,
+                collisionRadius
+            });
+            
+            // 重新创建力导向图
+            simulation = d3.forceSimulation(graphData.nodes)
+                .force('link', d3.forceLink(graphData.edges)
+                    .id(d => d.id)
+                    .distance(linkDistance)
+                    .strength(0.2))
+                .force('charge', d3.forceManyBody()
+                    .strength(chargeStrength)
+                    .distanceMax(300))
+                .force('collision', d3.forceCollide()
+                    .radius(collisionRadius)
+                    .strength(1.0)
+                    .iterations(3))
+                .force('center', d3.forceCenter(width / 2, height / 2)
+                    .strength(0.1))
+                .force('boundary', () => {
+                    // 边界约束力
+                    const padding = 30;
+                    graphData.nodes.forEach(node => {
+                        node.x = Math.max(padding, Math.min(width - padding, node.x));
+                        node.y = Math.max(padding, Math.min(height - padding, node.y));
+                    });
+                })
+                .alphaDecay(0.02)
+                .velocityDecay(0.4)
+                .alpha(1);
+            
             // 创建链接
             const link = g.append('g')
                 .selectAll('line')
                 .data(graphData.edges)
                 .enter().append('line')
                 .attr('class', 'link')
-                .attr('stroke-width', 2);
+                .attr('stroke-width', d => {
+                    // 根据连接类型调整线条粗细
+                    return d.type === 'dependency' ? 2 : 1;
+                })
+                .attr('opacity', 0.6);
             
-            // 创建节点
+            // 创建节点组
             const node = g.append('g')
                 .selectAll('g')
                 .data(graphData.nodes)
@@ -365,15 +456,46 @@ export class GraphViewer {
                     .on('drag', dragged)
                     .on('end', dragended));
             
-            // 添加圆圈
+            // 添加圆圈 - 根据节点类型调整大小
             node.append('circle')
-                .attr('r', 8)
-                .attr('fill', d => nodeColors[d.type] || nodeColors.Other);
+                .attr('r', d => {
+                    const sizeMap = {
+                        'Class': 12,
+                        'Function': 10,
+                        'Module': 14,
+                        'Variable': 8,
+                        'Json': 9,
+                        'Markdown': 9,
+                        'Yaml': 9,
+                        'Style': 8,
+                        'Other': 7
+                    };
+                    return sizeMap[d.type] || 8;
+                })
+                .attr('fill', d => nodeColors[d.type] || nodeColors.Other)
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 2);
             
-            // 添加文本
+            // 添加文本标签 - 优化显示位置
             node.append('text')
-                .text(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name)
-                .attr('dy', 3);
+                .text(d => {
+                    const maxLength = d.type === 'Module' ? 20 : 15;
+                    return d.name.length > maxLength ? d.name.substring(0, maxLength) + '...' : d.name;
+                })
+                .attr('dy', d => {
+                    const sizeMap = {
+                        'Class': 16,
+                        'Function': 14,
+                        'Module': 18,
+                        'Variable': 12,
+                        'Other': 12
+                    };
+                    return (sizeMap[d.type] || 12) + 5;
+                })
+                .attr('text-anchor', 'middle')
+                .style('font-size', '11px')
+                .style('font-weight', d => d.type === 'Class' || d.type === 'Module' ? 'bold' : 'normal')
+                .style('fill', 'var(--vscode-editor-foreground)');
             
             // 添加工具提示
             node.on('mouseover', function(event, d) {
@@ -400,23 +522,24 @@ export class GraphViewer {
                 });
             });
             
-            // 更新力导向图
-            simulation
-                .nodes(graphData.nodes)
-                .on('tick', ticked);
-            
-            simulation.force('link')
-                .links(graphData.edges);
+            // 启动仿真
+            simulation.on('tick', ticked).restart();
             
             function ticked() {
+                // 更新链接位置
                 link
                     .attr('x1', d => d.source.x)
                     .attr('y1', d => d.source.y)
                     .attr('x2', d => d.target.x)
                     .attr('y2', d => d.target.y);
                 
-                node
-                    .attr('transform', d => \`translate(\${d.x},\${d.y})\`);
+                // 更新节点位置，限制在视窗范围内
+                node.attr('transform', d => {
+                    const margin = 30;
+                    d.x = Math.max(margin, Math.min(width - margin, d.x));
+                    d.y = Math.max(margin, Math.min(height - margin, d.y));
+                    return \`translate(\${d.x},\${d.y})\`;
+                });
             }
         }
         
@@ -471,6 +594,100 @@ export class GraphViewer {
                 .style('opacity', d => 
                     nodeData.includes(d.source.id) && nodeData.includes(d.target.id) ? 1 : 0.1
                 );
+        }
+        
+        function resetLayout() {
+            const layoutType = document.getElementById('layoutType').value;
+            applyLayout(layoutType);
+        }
+        
+        function applyLayout(layoutType) {
+            if (!graphData.nodes || graphData.nodes.length === 0) return;
+            
+            console.log('应用布局类型:', layoutType);
+            const nodeCount = graphData.nodes.length;
+            
+            switch (layoutType) {
+                case 'grid':
+                    applyGridLayout();
+                    break;
+                case 'circle':
+                    applyCircleLayout();
+                    break;
+                case 'force':
+                default:
+                    applyForceLayout();
+                    break;
+            }
+            
+            // 重启仿真
+            simulation.alpha(1).alphaTarget(0).restart();
+        }
+        
+        function applyGridLayout() {
+            const nodeCount = graphData.nodes.length;
+            const cols = Math.ceil(Math.sqrt(nodeCount));
+            const rows = Math.ceil(nodeCount / cols);
+            const cellWidth = (width - 100) / cols;
+            const cellHeight = (height - 100) / rows;
+            
+            graphData.nodes.forEach((node, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                
+                node.x = 50 + col * cellWidth + cellWidth / 2;
+                node.y = 50 + row * cellHeight + cellHeight / 2;
+                
+                // 网格布局下固定位置，避免移动
+                node.fx = node.x;
+                node.fy = node.y;
+            });
+        }
+        
+        function applyCircleLayout() {
+            const nodeCount = graphData.nodes.length;
+            const radius = Math.min(width, height) * 0.35;
+            
+            graphData.nodes.forEach((node, i) => {
+                if (nodeCount === 1) {
+                    node.x = width / 2;
+                    node.y = height / 2;
+                } else {
+                    const angle = (i / nodeCount) * 2 * Math.PI;
+                    node.x = width / 2 + radius * Math.cos(angle);
+                    node.y = height / 2 + radius * Math.sin(angle);
+                }
+                
+                // 圆形布局下允许少量调整
+                node.fx = null;
+                node.fy = null;
+            });
+        }
+        
+        function applyForceLayout() {
+            // 使用网格初始化，然后由力导向进行调整
+            const nodeCount = graphData.nodes.length;
+            const cols = Math.ceil(Math.sqrt(nodeCount));
+            const rows = Math.ceil(nodeCount / cols);
+            const cellWidth = (width - 100) / cols;
+            const cellHeight = (height - 100) / rows;
+            
+            graphData.nodes.forEach((node, i) => {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                
+                // 网格位置 + 较大的随机偏移
+                node.x = 50 + col * cellWidth + cellWidth / 2 + (Math.random() - 0.5) * cellWidth * 0.8;
+                node.y = 50 + row * cellHeight + cellHeight / 2 + (Math.random() - 0.5) * cellHeight * 0.8;
+                
+                // 清除固定位置，允许力导向调整
+                node.fx = null;
+                node.fy = null;
+                
+                // 重置速度
+                node.vx = 0;
+                node.vy = 0;
+            });
         }
         
         // 请求初始数据

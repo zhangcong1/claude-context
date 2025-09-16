@@ -66,6 +66,26 @@
         "command": "vscode-graphrag.generateUnifiedWiki",
         "title": "生成统一知识图谱Wiki",
         "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.generateIntelligentWiki",
+        "title": "智能Wiki生成器",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.analyzeFeature",
+        "title": "功能分析器",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.generateHybridWiki",
+        "title": "混合模式Wiki生成器",
+        "category": "GraphRAG"
+      },
+      {
+        "command": "vscode-graphrag.customizeHybridMode",
+        "title": "自定义混合模式配置",
+        "category": "GraphRAG"
       }
     ],
     "menus": {
@@ -112,6 +132,22 @@
         },
         {
           "command": "vscode-graphrag.generateUnifiedWiki",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.generateIntelligentWiki",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.analyzeFeature",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.generateHybridWiki",
+          "when": "workspaceFolderCount > 0"
+        },
+        {
+          "command": "vscode-graphrag.customizeHybridMode",
           "when": "workspaceFolderCount > 0"
         }
       ]

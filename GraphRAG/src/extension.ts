@@ -2,11 +2,14 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { parseTsFile, parseVueFile, GraphNode, GraphEdge } from './parser';
+import * as ts from 'typescript';
 import { KnowledgeGraph } from './graph';
 import { GraphViewer } from './webview/graphViewer';
 import { ConfigManager } from './config/configManager';
 import { SearchCommand } from './commands/searchCommand';
 import { IndexCommand } from './commands/indexCommand';
+import { generateIntelligentWikiCommand, analyzeFeatureCommand } from './commands/intelligentWikiCommand';
+import { generateHybridWikiCommand, customizeHybridModeCommand } from './commands/hybridWikiCommand';
 const WikiGenerator = require('./generator/wikiGenerator');
 const AIWikiGenerator = require('./generator/aiWikiGenerator');
 const BusinessWikiGenerator = require('./generator/businessWikiGenerator');
@@ -317,6 +320,26 @@ export function activate(context: vscode.ExtensionContext) {
     await indexCommand.execute();
   });
 
+  // 注册"智能Wiki生成"命令
+  const generateIntelligentWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateIntelligentWiki', async () => {
+    await generateIntelligentWikiCommand();
+  });
+
+  // 注册"功能分析"命令
+  const analyzeFeatureCmd = vscode.commands.registerCommand('vscode-graphrag.analyzeFeature', async () => {
+    await analyzeFeatureCommand();
+  });
+
+  // 注册"混合模式Wiki"命令
+  const generateHybridWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateHybridWiki', async () => {
+    await generateHybridWikiCommand();
+  });
+
+  // 注册"自定义混合模式"命令
+  const customizeHybridModeCmd = vscode.commands.registerCommand('vscode-graphrag.customizeHybridMode', async () => {
+    await customizeHybridModeCommand();
+  });
+
   // 设置文件监听器
   setupFileWatcher(context);
 
@@ -335,6 +358,10 @@ export function activate(context: vscode.ExtensionContext) {
     clearGraphCmd,
     semanticSearchCmd,
     indexCodebaseCmd,
+    generateIntelligentWikiCmd,
+    analyzeFeatureCmd,
+    generateHybridWikiCmd,
+    customizeHybridModeCmd,
     generateWikiCmd,
     generateAIWikiCmd,
     generateBusinessWikiCmd,
@@ -391,49 +418,68 @@ async function buildKnowledgeGraph(): Promise<void> {
     // 清空现有图谱
     knowledgeGraph.clear();
 
-    let totalFiles = 0;
+    // 收集所有文件并创建 TypeScript Program，以便获取 TypeChecker 做跨文件解析
+    let allFiles: string[] = [];
+    for (const folder of workspaceFolders) {
+      allFiles = allFiles.concat(getAllCodeFiles(folder.uri.fsPath, folder.uri.fsPath));
+    }
+
+    const totalFiles = allFiles.length;
     let processedFiles = 0;
 
-    for (const folder of workspaceFolders) {
-      const files = getAllCodeFiles(folder.uri.fsPath, folder.uri.fsPath);
-      totalFiles += files.length;
+    // 只把 ts/js 文件传给 program
+    const programFiles = allFiles.filter(f => f.endsWith('.ts') || f.endsWith('.js') || f.endsWith('.tsx') || f.endsWith('.jsx'));
+    let checker: ts.TypeChecker | undefined = undefined;
+    try {
+      const compilerOptions: ts.CompilerOptions = {
+        allowJs: true,
+        jsx: ts.JsxEmit.Preserve,
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.CommonJS,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs
+      };
+      const program = ts.createProgram(programFiles, compilerOptions);
+      checker = program.getTypeChecker();
+    } catch (e) {
+      console.warn('Failed to create TypeScript program for checker:', e);
+      checker = undefined;
+    }
 
-      for (const file of files) {
-        if (token.isCancellationRequested) {return;}
+    for (const file of allFiles) {
+      if (token.isCancellationRequested) {return;}
 
-        try {
-          let result: { nodes: GraphNode[]; edges: GraphEdge[] };
+      try {
+        let result: { nodes: GraphNode[]; edges: GraphEdge[] };
 
-          if (file.endsWith('.vue')) {
-            const nodes = parseVueFile(file, {
-              maxNodesPerFile: config.maxNodesPerFile,
-              maxFileSize: config.maxFileSizeKB * 1024,
-              skipMinifiedFiles: true,
-              skipTestFiles: true,
-              includeTemplate: config.includeTemplate
-            });
-            result = { nodes, edges: [] };
-          } else {
-            result = parseTsFile(file, {
-              maxNodesPerFile: config.maxNodesPerFile,
-              maxFileSize: config.maxFileSizeKB * 1024,
-              skipMinifiedFiles: true,
-              skipTestFiles: true
-            });
-          }
-
-          knowledgeGraph.addNodes(result.nodes);
-          knowledgeGraph.addEdges(result.edges);
-
-          processedFiles++;
-          progress.report({
-            message: `解析 ${file.split(path.sep).pop()}...`,
-            increment: (100 / totalFiles)
-          });
-
-        } catch (error) {
-          console.warn(`Failed to parse ${file}:`, error);
+        if (file.endsWith('.vue')) {
+          const resultVue = parseVueFile(file, {
+            maxNodesPerFile: config.maxNodesPerFile,
+            maxFileSize: config.maxFileSizeKB * 1024,
+            skipMinifiedFiles: true,
+            skipTestFiles: true,
+            includeTemplate: config.includeTemplate
+          }, checker);
+          result = { nodes: resultVue.nodes, edges: resultVue.edges };
+        } else {
+          result = parseTsFile(file, {
+            maxNodesPerFile: config.maxNodesPerFile,
+            maxFileSize: config.maxFileSizeKB * 1024,
+            skipMinifiedFiles: true,
+            skipTestFiles: true
+          }, checker);
         }
+
+        knowledgeGraph.addNodes(result.nodes);
+        knowledgeGraph.addEdges(result.edges);
+
+        processedFiles++;
+        progress.report({
+          message: `解析 ${file.split(path.sep).pop()}...`,
+          increment: totalFiles > 0 ? (100 / totalFiles) : 0
+        });
+
+      } catch (error) {
+        console.warn(`Failed to parse ${file}:`, error);
       }
     }
 
@@ -563,14 +609,14 @@ function setupFileWatcher(context: vscode.ExtensionContext): void {
         let result: { nodes: GraphNode[]; edges: GraphEdge[] };
 
         if (filePath.endsWith('.vue')) {
-          const nodes = parseVueFile(filePath, {
+          const resultVue = parseVueFile(filePath, {
             maxNodesPerFile: 50,
             maxFileSize: 50 * 1024,
             skipMinifiedFiles: true,
             skipTestFiles: true,
             includeTemplate: false
           });
-          result = { nodes, edges: [] };
+          result = { nodes: resultVue.nodes, edges: resultVue.edges };
         } else {
           result = parseTsFile(filePath, {
             maxNodesPerFile: 100,

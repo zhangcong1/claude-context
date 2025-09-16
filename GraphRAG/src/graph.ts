@@ -180,11 +180,68 @@ export class KnowledgeGraph {
     // 搜索节点（支持名称模糊匹配）
     searchNodes(query: string): GraphNode[] {
         const lowerQuery = query.toLowerCase();
-        return this.getAllNodes().filter(node =>
-            node.name.toLowerCase().includes(lowerQuery) ||
-            node.file.toLowerCase().includes(lowerQuery) ||
-            node.id.toLowerCase().includes(lowerQuery)
-        );
+        const results = new Map<string, { node: GraphNode; score: number }>();
+        
+        for (const node of this.nodes.values()) {
+            let score = 0;
+            
+            // 精确匹配名称
+            if (node.name.toLowerCase() === lowerQuery) {
+                score += 10;
+            }
+            // 名称包含查询
+            else if (node.name.toLowerCase().includes(lowerQuery)) {
+                score += 5;
+            }
+            
+            // 类型匹配
+            if (node.type.toLowerCase().includes(lowerQuery)) {
+                score += 3;
+            }
+            
+            // 文件路径匹配
+            if (node.file.toLowerCase().includes(lowerQuery)) {
+                score += 2;
+            }
+            
+            // ID匹配
+            if (node.id.toLowerCase().includes(lowerQuery)) {
+                score += 1;
+            }
+            
+            // 语义描述匹配
+            if (node.semantic && node.semantic.toLowerCase().includes(lowerQuery)) {
+                score += 4;
+            }
+            
+            // 代码片段匹配
+            if (node.snippet && node.snippet.toLowerCase().includes(lowerQuery)) {
+                score += 3;
+            }
+            
+            // 元数据匹配
+            if (node.metadata) {
+                if (node.metadata.documentation && node.metadata.documentation.toLowerCase().includes(lowerQuery)) {
+                    score += 4;
+                }
+                if (node.metadata.tags && node.metadata.tags.some(tag => tag.toLowerCase().includes(lowerQuery))) {
+                    score += 3;
+                }
+                if (node.metadata.functionSignature && node.metadata.functionSignature.toLowerCase().includes(lowerQuery)) {
+                    score += 3;
+                }
+            }
+            
+            // 只保留有匹配分数的节点
+            if (score > 0) {
+                results.set(node.id, { node, score });
+            }
+        }
+        
+        // 按分数排序并返回节点
+        return Array.from(results.values())
+            .sort((a, b) => b.score - a.score)
+            .map(item => item.node);
     }
 
     // 获取文件相关的所有节点

@@ -71,14 +71,14 @@ class IndexCommand {
                         try {
                             let result;
                             if (file.endsWith('.vue')) {
-                                const nodes = (0, parser_1.parseVueFile)(file, {
+                                const rv = (0, parser_1.parseVueFile)(file, {
                                     maxNodesPerFile: config.maxNodesPerFile,
                                     maxFileSize: config.maxFileSizeKB * 1024,
                                     skipMinifiedFiles: true,
                                     skipTestFiles: true,
                                     includeTemplate: config.includeTemplate
                                 });
-                                result = { nodes, edges: [] };
+                                result = { nodes: rv.nodes, edges: rv.edges };
                             }
                             else {
                                 result = (0, parser_1.parseTsFile)(file, {
@@ -129,16 +129,18 @@ class IndexCommand {
         try {
             const list = fs.readdirSync(dir);
             list.forEach(file => {
-                if (IGNORE_DIRS.includes(file))
+                if (IGNORE_DIRS.includes(file)) {
                     return;
+                }
                 if (IGNORE_PATTERNS.some(pattern => {
                     if (pattern.includes('*')) {
                         const regex = new RegExp(pattern.replace(/\*/g, '.*'));
                         return regex.test(file);
                     }
                     return file === pattern;
-                }))
+                })) {
                     return;
+                }
                 const filePath = path.join(dir, file);
                 const stat = fs.statSync(filePath);
                 if (stat.isDirectory()) {

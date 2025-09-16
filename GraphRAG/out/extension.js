@@ -39,11 +39,14 @@ const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const parser_1 = require("./parser");
+const ts = __importStar(require("typescript"));
 const graph_1 = require("./graph");
 const graphViewer_1 = require("./webview/graphViewer");
 const configManager_1 = require("./config/configManager");
 const searchCommand_1 = require("./commands/searchCommand");
 const indexCommand_1 = require("./commands/indexCommand");
+const intelligentWikiCommand_1 = require("./commands/intelligentWikiCommand");
+const hybridWikiCommand_1 = require("./commands/hybridWikiCommand");
 const WikiGenerator = require('./generator/wikiGenerator');
 const AIWikiGenerator = require('./generator/aiWikiGenerator');
 const BusinessWikiGenerator = require('./generator/businessWikiGenerator');
@@ -54,6 +57,20 @@ let fileWatcher;
 let searchCommand;
 let indexCommand;
 let configManager;
+// Helper: read code for a node with context lines
+function getCodeForNode(node, contextLines = 8) {
+    try {
+        const content = fs.readFileSync(node.file, 'utf8');
+        const lines = content.split('\n');
+        const startLine = Math.max(0, (node.range?.startLine || 0) - contextLines);
+        const endLine = Math.min(lines.length - 1, (node.range?.endLine || 0) + contextLines);
+        return lines.slice(startLine, endLine + 1).join('\n');
+    }
+    catch (e) {
+        console.warn(`getCodeForNode failed reading ${node.file}:`, e);
+        return '';
+    }
+}
 function activate(context) {
     console.log('GraphRAG Knowledge Graph extension is now active!');
     // 初始化知识图谱
@@ -291,6 +308,22 @@ function activate(context) {
     const indexCodebaseCmd = vscode.commands.registerCommand('vscode-graphrag.indexCodebase', async () => {
         await indexCommand.execute();
     });
+    // 注册"智能Wiki生成"命令
+    const generateIntelligentWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateIntelligentWiki', async () => {
+        await (0, intelligentWikiCommand_1.generateIntelligentWikiCommand)();
+    });
+    // 注册"功能分析"命令
+    const analyzeFeatureCmd = vscode.commands.registerCommand('vscode-graphrag.analyzeFeature', async () => {
+        await (0, intelligentWikiCommand_1.analyzeFeatureCommand)();
+    });
+    // 注册"混合模式Wiki"命令
+    const generateHybridWikiCmd = vscode.commands.registerCommand('vscode-graphrag.generateHybridWiki', async () => {
+        await (0, hybridWikiCommand_1.generateHybridWikiCommand)();
+    });
+    // 注册"自定义混合模式"命令
+    const customizeHybridModeCmd = vscode.commands.registerCommand('vscode-graphrag.customizeHybridMode', async () => {
+        await (0, hybridWikiCommand_1.customizeHybridModeCommand)();
+    });
     // 设置文件监听器
     setupFileWatcher(context);
     // 注册状态栏
@@ -299,7 +332,27 @@ function activate(context) {
     statusBarItem.tooltip = '点击查看知识图谱';
     statusBarItem.command = 'vscode-graphrag.showGraph';
     statusBarItem.show();
-    context.subscriptions.push(buildGraphCmd, showGraphCmd, exportGraphCmd, importGraphCmd, clearGraphCmd, semanticSearchCmd, indexCodebaseCmd, generateWikiCmd, generateAIWikiCmd, generateBusinessWikiCmd, generateUnifiedWikiCmd, statusBarItem);
+    context.subscriptions.push(buildGraphCmd, showGraphCmd, exportGraphCmd, importGraphCmd, clearGraphCmd, semanticSearchCmd, indexCodebaseCmd, generateIntelligentWikiCmd, analyzeFeatureCmd, generateHybridWikiCmd, customizeHybridModeCmd, generateWikiCmd, generateAIWikiCmd, generateBusinessWikiCmd, generateUnifiedWikiCmd, statusBarItem);
+    // 注册命令：展示节点对应的代码片段（用于调试/展示）
+    const showNodeCodeCmd = vscode.commands.registerCommand('vscode-graphrag.showNodeCode', async () => {
+        const nodeId = await vscode.window.showInputBox({ prompt: '请输入要查看的节点 id（例如：src/services/auth.ts:login）' });
+        if (!nodeId) {
+            return;
+        }
+        const node = knowledgeGraph.getAllNodes().find(n => n.id === nodeId);
+        if (!node) {
+            vscode.window.showErrorMessage(`未找到节点: ${nodeId}`);
+            return;
+        }
+        const code = getCodeForNode(node, 10);
+        if (!code) {
+            vscode.window.showWarningMessage('无法读取或节点没有范围信息');
+            return;
+        }
+        const doc = await vscode.workspace.openTextDocument({ content: `// From: ${node.file} (${node.range?.startLine || '?'}-${node.range?.endLine || '?'})\n\n${code}`, language: 'typescript' });
+        await vscode.window.showTextDocument(doc, { preview: false });
+    });
+    context.subscriptions.push(showNodeCodeCmd);
     // 自动构建初始图谱
     buildKnowledgeGraph().catch(error => {
         console.error('Initial graph build failed:', error);
@@ -321,46 +374,65 @@ async function buildKnowledgeGraph() {
         }
         // 清空现有图谱
         knowledgeGraph.clear();
-        let totalFiles = 0;
-        let processedFiles = 0;
+        // 收集所有文件并创建 TypeScript Program，以便获取 TypeChecker 做跨文件解析
+        let allFiles = [];
         for (const folder of workspaceFolders) {
-            const files = getAllCodeFiles(folder.uri.fsPath, folder.uri.fsPath);
-            totalFiles += files.length;
-            for (const file of files) {
-                if (token.isCancellationRequested) {
-                    return;
+            allFiles = allFiles.concat(getAllCodeFiles(folder.uri.fsPath, folder.uri.fsPath));
+        }
+        const totalFiles = allFiles.length;
+        let processedFiles = 0;
+        // 只把 ts/js 文件传给 program
+        const programFiles = allFiles.filter(f => f.endsWith('.ts') || f.endsWith('.js') || f.endsWith('.tsx') || f.endsWith('.jsx'));
+        let checker = undefined;
+        try {
+            const compilerOptions = {
+                allowJs: true,
+                jsx: ts.JsxEmit.Preserve,
+                target: ts.ScriptTarget.ESNext,
+                module: ts.ModuleKind.CommonJS,
+                moduleResolution: ts.ModuleResolutionKind.NodeJs
+            };
+            const program = ts.createProgram(programFiles, compilerOptions);
+            checker = program.getTypeChecker();
+        }
+        catch (e) {
+            console.warn('Failed to create TypeScript program for checker:', e);
+            checker = undefined;
+        }
+        for (const file of allFiles) {
+            if (token.isCancellationRequested) {
+                return;
+            }
+            try {
+                let result;
+                if (file.endsWith('.vue')) {
+                    const resultVue = (0, parser_1.parseVueFile)(file, {
+                        maxNodesPerFile: config.maxNodesPerFile,
+                        maxFileSize: config.maxFileSizeKB * 1024,
+                        skipMinifiedFiles: true,
+                        skipTestFiles: true,
+                        includeTemplate: config.includeTemplate
+                    }, checker);
+                    result = { nodes: resultVue.nodes, edges: resultVue.edges };
                 }
-                try {
-                    let result;
-                    if (file.endsWith('.vue')) {
-                        const nodes = (0, parser_1.parseVueFile)(file, {
-                            maxNodesPerFile: config.maxNodesPerFile,
-                            maxFileSize: config.maxFileSizeKB * 1024,
-                            skipMinifiedFiles: true,
-                            skipTestFiles: true,
-                            includeTemplate: config.includeTemplate
-                        });
-                        result = { nodes, edges: [] };
-                    }
-                    else {
-                        result = (0, parser_1.parseTsFile)(file, {
-                            maxNodesPerFile: config.maxNodesPerFile,
-                            maxFileSize: config.maxFileSizeKB * 1024,
-                            skipMinifiedFiles: true,
-                            skipTestFiles: true
-                        });
-                    }
-                    knowledgeGraph.addNodes(result.nodes);
-                    knowledgeGraph.addEdges(result.edges);
-                    processedFiles++;
-                    progress.report({
-                        message: `解析 ${file.split(path.sep).pop()}...`,
-                        increment: (100 / totalFiles)
-                    });
+                else {
+                    result = (0, parser_1.parseTsFile)(file, {
+                        maxNodesPerFile: config.maxNodesPerFile,
+                        maxFileSize: config.maxFileSizeKB * 1024,
+                        skipMinifiedFiles: true,
+                        skipTestFiles: true
+                    }, checker);
                 }
-                catch (error) {
-                    console.warn(`Failed to parse ${file}:`, error);
-                }
+                knowledgeGraph.addNodes(result.nodes);
+                knowledgeGraph.addEdges(result.edges);
+                processedFiles++;
+                progress.report({
+                    message: `解析 ${file.split(path.sep).pop()}...`,
+                    increment: totalFiles > 0 ? (100 / totalFiles) : 0
+                });
+            }
+            catch (error) {
+                console.warn(`Failed to parse ${file}:`, error);
             }
         }
         if (token.isCancellationRequested) {
@@ -474,14 +546,14 @@ function setupFileWatcher(context) {
                 // 重新解析文件
                 let result;
                 if (filePath.endsWith('.vue')) {
-                    const nodes = (0, parser_1.parseVueFile)(filePath, {
+                    const resultVue = (0, parser_1.parseVueFile)(filePath, {
                         maxNodesPerFile: 50,
                         maxFileSize: 50 * 1024,
                         skipMinifiedFiles: true,
                         skipTestFiles: true,
                         includeTemplate: false
                     });
-                    result = { nodes, edges: [] };
+                    result = { nodes: resultVue.nodes, edges: resultVue.edges };
                 }
                 else {
                     result = (0, parser_1.parseTsFile)(filePath, {
